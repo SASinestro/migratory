@@ -17,8 +17,10 @@ module Database.Migratory.TableSchema
     , addForeignKeyToSelfToColumn
     , removeForeignKeyFromColumn
     , removeForeignKeyToSelfFromColumn
-    , addTableT
-    , addTable
+    , mkTableT
+    , mkTable
+    , updateTable
+    , updateTableT
     ) where
 
 import           Control.Monad.Indexed
@@ -111,6 +113,9 @@ data ColumnName :: Symbol -> Type where
 instance KnownSymbol sym => Show (ColumnName sym) where
     show = symbolVal
 
+instance KnownSymbol name => Default (ColumnName name) where
+    def = ColumnName
+
 data Column :: Symbol -> ColumnType -> [ColumnConstraint] -> Type where
     Column :: KnownSymbol name => Column name type' constraints
     WithDefault :: KnownSymbol name => ColumnValueType (Column name ty cons) -> Column name ty cons
@@ -128,6 +133,9 @@ data TableName :: Symbol -> Type where
 
 instance KnownSymbol sym => Show (TableName sym) where
     show = symbolVal
+
+instance KnownSymbol sym => Default (TableName sym) where
+    def = TableName
 
 data Table :: Symbol -> [Type] -> Type where
     Table :: KnownSymbol name => Table name cols
@@ -252,9 +260,14 @@ removeForeignKeyToSelfFromColumn targetCol myCol = iget >>>= \tbl -> removeForei
 
 --
 
-addTableT :: (Monad m, KnownSymbol name) => TableName name -> TableDefT m name '[] col () -> m (Table name col)
-addTableT _ defAction = snd <$> runIxStateT defAction Table
+mkTableT :: (Monad m, KnownSymbol name) => TableName name -> TableDefT m name '[] col a -> m (Table name col)
+mkTableT _ defAction = snd <$> runIxStateT defAction Table
 
-addTable :: (KnownSymbol name) => TableName name -> TableDef name '[] col () -> Table name col
-addTable _ defAction = runIdentity $ snd <$> runIxStateT defAction Table
+mkTable :: (KnownSymbol name) => TableName name -> TableDef name '[] col a -> Table name col
+mkTable _ defAction = runIdentity $ snd <$> runIxStateT defAction Table
 
+updateTableT :: (Monad m, KnownSymbol name) => Table name col -> TableDefT m name col col' a -> m (Table name col')
+updateTableT _ defAction = snd <$> runIxStateT defAction Table
+
+updateTable :: (KnownSymbol name) => Table name col -> TableDef name col col' a -> Table name col'
+updateTable _ defAction = runIdentity $ snd <$> runIxStateT defAction Table
