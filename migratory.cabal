@@ -32,6 +32,8 @@ library
                        , UndecidableInstances
 
     exposed-modules:     Database.Migratory.TableSchema
+                       , Database.Migratory.DbSchema
+                       , Database.Migratory.MigrationPrelude
 --                       , Database.Migratory.Migrate
 
     build-depends:       base >= 4.9 && < 5
