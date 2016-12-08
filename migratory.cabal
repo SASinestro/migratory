@@ -1,6 +1,6 @@
 name:                migratory
 version:             0.1.0.0
-synopsis:            Initial project template from stack
+synopsis:            Dependently-Typed Database Migrations in Haskell
 description:         Please see README.md
 homepage:            https://github.com/sasinestro/migratory#readme
 license:             MPL-2.0
