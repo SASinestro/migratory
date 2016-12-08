@@ -1,5 +1,4 @@
 # Migratory – Dependently-Typed Database Migrations in Haskell
----
 
 That, pretty much.
 
