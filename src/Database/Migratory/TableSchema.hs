@@ -28,11 +28,12 @@ import           Data.Default
 import           Data.Functor.Identity
 import           Data.Int
 import           Data.Kind
+import           Data.Proxy
 import qualified Data.Text                   as T
 import           Data.Type.Bool
 import           Data.Type.Equality
 import           GHC.TypeLits
-
+import           GHC.TypeLits.Symbols
 
 data ColumnConstraint where
     Unique :: ColumnConstraint
@@ -83,6 +84,25 @@ type family ColumnValueType col where
     ColumnValueType (Column name MACAddressCol cons) = T.Text -- TODO: Replace with stricter types!
     ColumnValueType (Column name IPAddressCol cons)  = T.Text
 
+type family HumanName (v :: k) :: Symbol where
+    HumanName SerialCol = "SerialCol"
+    HumanName IntCol = "IntCol"
+    HumanName BigIntCol = "BigIntCol"
+    HumanName BooleanCol = "BooleanCol"
+    HumanName TextCol = "TextCol"
+    HumanName JSONBCol = "JSONBCol"
+    HumanName MACAddressCol = "MACAddressCol"
+    HumanName IPAddressCol = "IPAddressCol"
+    HumanName Unique = "Unique"
+    HumanName Nullable = "Nullable"
+    HumanName PrimaryKey = "PrimaryKey"
+    HumanName (Reference a b) = "Reference"
+    HumanName '[] = ""
+    HumanName '[x] = HumanName x
+    HumanName (x:xs) = HumanName x +++ ", " +++ HumanName xs
+    HumanName (Column name ty cons) = "Column (name = \"" +++ name +++ "\", type = " +++ HumanName ty +++ ", constraints = [" +++ HumanName cons +++ "])"
+    HumanName (Table name cols) = "Table (name = \"" +++ name +++ "\", columns: [" +++ HumanName cols +++ "])"
+
 --
 
 data ColumnName :: Symbol -> Type where
@@ -95,8 +115,8 @@ data Column :: Symbol -> ColumnType -> [ColumnConstraint] -> Type where
     Column :: KnownSymbol name => Column name type' constraints
     WithDefault :: KnownSymbol name => ColumnValueType (Column name ty cons) -> Column name ty cons
 
-instance (KnownSymbol name) => Show (Column name type' constraints) where
-    show _ = "Column \"" ++ show (ColumnName :: ColumnName name) ++ "\""
+instance KnownSymbol (HumanName (Column name type' constraints)) => Show (Column name type' constraints) where
+    show _ = symbolVal (Proxy :: Proxy (HumanName (Column name type' constraints)))
 
 instance KnownSymbol name => Default (Column name ty cons) where
     def = Column
@@ -106,8 +126,14 @@ instance KnownSymbol name => Default (Column name ty cons) where
 data TableName :: Symbol -> Type where
     TableName :: KnownSymbol sym => TableName sym
 
+instance KnownSymbol sym => Show (TableName sym) where
+    show = symbolVal
+
 data Table :: Symbol -> [Type] -> Type where
     Table :: KnownSymbol name => Table name cols
+
+instance KnownSymbol (HumanName (Table name cols)) => Show (Table name cols) where
+    show _ = symbolVal (Proxy :: Proxy (HumanName (Table name cols)))
 
 instance KnownSymbol name => Default (Table name cols) where
     def = Table

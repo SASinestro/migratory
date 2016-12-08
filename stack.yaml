@@ -6,6 +6,10 @@ packages:
     git: git@github.com:SASinestro/indexed-extras.git
     commit: de068934ec9c68a8f2a5e051adafa3369218243e
   extra-dep: true
+- location:
+    git: https://github.com/konn/ghc-typelits-symbols.git
+    commit: cd812f4cfc2e6816a18283a6a0e9bb2d9ea2905e
+  extra-dep: true
 
 extra-deps:
 - indexed-0.1.3
