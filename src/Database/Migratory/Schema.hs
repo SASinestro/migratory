@@ -1,4 +1,4 @@
-module Database.Migratory.TableSchema
+module Database.Migratory.Schema
     ( ColumnConstraint(Unique, Nullable, PrimaryKey)
     , ColumnType(..)
     , ColumnName(..)

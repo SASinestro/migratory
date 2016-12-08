@@ -31,10 +31,9 @@ library
                        , TypeFamilies
                        , UndecidableInstances
 
-    exposed-modules:     Database.Migratory.TableSchema
-                       , Database.Migratory.DbSchema
+    exposed-modules:     Database.Migratory.Schema
                        , Database.Migratory.MigrationPrelude
---                       , Database.Migratory.Migrate
+                       , Database.Migratory.Migrate
 
     build-depends:       base >= 4.9 && < 5
                        , template-haskell
