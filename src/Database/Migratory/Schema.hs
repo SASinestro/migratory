@@ -34,6 +34,7 @@ import           Data.Proxy
 import qualified Data.Text                   as T
 import           Data.Type.Bool
 import           Data.Type.Equality
+import           Data.Typeable
 import           GHC.TypeLits
 import           GHC.TypeLits.Symbols
 
@@ -42,6 +43,8 @@ data ColumnConstraint where
     Nullable :: ColumnConstraint
     PrimaryKey :: ColumnConstraint
     Reference :: Symbol -> Symbol -> ColumnConstraint
+
+deriving instance Typeable ColumnConstraint
 
 type family EqColumnConstraint a b where
     EqColumnConstraint Unique Unique = True
@@ -62,6 +65,8 @@ data ColumnType = SerialCol
                 | MACAddressCol
                 | IPAddressCol
                 deriving (Show, Eq)
+
+deriving instance Typeable ColumnType
 
 type family EqColumnType a b where
     EqColumnType SerialCol SerialCol = True

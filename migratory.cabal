@@ -19,6 +19,7 @@ library
     ghc-options:         -Wall -Wno-redundant-constraints -Wno-unticked-promoted-constructors -fplugin GHC.TypeLits.Symbols.Solver -fconstraint-solver-iterations=0
     default-extensions:  ConstraintKinds
                        , DataKinds
+                       , DeriveDataTypeable
                        , FlexibleContexts
                        , FlexibleInstances
                        , GADTs
@@ -26,7 +27,7 @@ library
                        , RankNTypes
                        , RecordWildCards
                        , ScopedTypeVariables
-                       , TemplateHaskell
+                       , StandaloneDeriving
                        , TypeOperators
                        , TypeFamilies
                        , UndecidableInstances
@@ -36,7 +37,6 @@ library
                        , Database.Migratory.Migrate
 
     build-depends:       base >= 4.9 && < 5
-                       , template-haskell
                        , text
                        , bytestring
                        , aeson
