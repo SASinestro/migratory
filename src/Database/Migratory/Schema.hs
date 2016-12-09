@@ -203,20 +203,20 @@ type family RemoveFirst i (ts :: [k]) :: [k] where
 type TableDefT m name col col' a = KnownSymbol name => IxStateT m (Table name col) (Table name col') a
 type TableDef name col col' a = TableDefT Identity name col col' a
 
-addColumn :: (Monad m, UniquelyNamed name col)
-          => Column name ty cons
-          -> TableDefT m tblname col (Column name ty cons:col) (Column name ty cons)
-addColumn col = iput (Table) >>>= \_ -> ireturn col
+colBody :: (IxMonadState m, KnownSymbol tblname, KnownSymbol name) => m (Table tblname i) (Table tblname j) (Column name ty cons)
+colBody = iput Table >>>= \_ -> ireturn Column
 
-alterColumn :: (Monad m, HasColumnNamed name col)
-            => Column name ty cons
-            -> TableDefT m tblname col (UpdateColumn (Column name ty cons) col) (Column name ty cons)
-alterColumn col = iput (Table) >>>= \_ -> ireturn col
+type AddColumn name ty cons = forall m tblname col . (Monad m, KnownSymbol name, UniquelyNamed name col) => TableDefT m tblname col (Column name ty cons:col) (Column name ty cons)
+addColumn :: Column name ty cons -> AddColumn name ty cons
+addColumn _ = colBody
 
-removeColumn :: (Monad m, HasColumn (Column name ty cons) col)
-             => Column name ty cons
-             -> TableDefT m tblname col (RemoveFirst (Column name ty cons) col) ()
-removeColumn _ = iput (Table)
+type AlterColumn name ty cons = forall m tblname col . (Monad m, KnownSymbol name, HasColumnNamed name col) => TableDefT m tblname col (UpdateColumn (Column name ty cons) col) (Column name ty cons)
+alterColumn :: Column name ty cons -> AlterColumn name ty cons
+alterColumn _ = colBody
+
+type RemoveColumn name ty cons = forall m tblname col . (Monad m, KnownSymbol name, HasColumn (Column name ty cons) col) => TableDefT m tblname col (RemoveFirst (Column name ty cons) col) (Column name ty cons)
+removeColumn :: Column name ty cons -> RemoveColumn name ty cons
+removeColumn _ = colBody
 
 addForeignKeyColumn :: (Monad m, KnownSymbol name, UniquelyNamed name col, HasColumnNamed targetCol targetCols)
                     => Table targetName targetCols
