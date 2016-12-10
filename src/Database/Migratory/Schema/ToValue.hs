@@ -3,8 +3,12 @@ module Database.Migratory.Schema.ToValue (ColumnConstraintCon(..), ColumnTypeCon
 
 import           Crypto.Hash
 import           Data.Bifunctor
-import qualified Data.ByteString.Char8           as BS
+import qualified Data.ByteString.Char8                as BS
 import           Data.Typeable
+import           Database.PostgreSQL.Simple.FromField (FromField(..), typeOid, returnError, ResultError(..))
+import           Database.PostgreSQL.Simple.ToField
+import Database.PostgreSQL.Simple.TypeInfo.Static (typoid, text)
+
 
 import           Database.Migratory.Schema.Types
 
@@ -102,6 +106,16 @@ instance Show (DatabaseCon) where
 
 newtype DatabaseState = DatabaseState { _unDbState :: String }
                       deriving (Eq, Show)
+
+instance FromField DatabaseState where
+    fromField field mdata = if typeOid field /= typoid text
+        then returnError Incompatible field ""
+        else case mdata of
+            Just data' -> return . DatabaseState . BS.unpack $ data'
+            Nothing -> returnError UnexpectedNull field ""
+
+instance ToField DatabaseState where
+    toField = toField . _unDbState
 
 toDatabaseState :: Typeable tbls => Database tbls -> DatabaseState
 toDatabaseState = DatabaseState . show . hashWith SHA3_256 . toByteStringRep

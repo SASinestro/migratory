@@ -12,6 +12,7 @@ module Database.Migratory.Schema
     , addColumn
     , alterColumn
     , dropColumn
+    , getColumn
     , addForeignKeyColumn
     , addForeignKeyToSelfColumn
     , addForeignKeyToColumn
@@ -23,6 +24,7 @@ module Database.Migratory.Schema
     , addTable
     , alterTable
     , dropTable
+    , getTable
     , mkDatabase
     , updateDatabase
     ) where
@@ -36,20 +38,24 @@ import Database.Migratory.Schema.Types
 
 --
 
-colBody :: (IxMonadState m, KnownSymbol tblname, KnownSymbol name) => m (Table tblname i) (Table tblname j) (Column name ty cons)
-colBody = iput Table >>>= \_ -> ireturn Column
+colBody :: (IxMonadState m, KnownSymbol tblname) => m (Table tblname i) (Table tblname j) ()
+colBody = iput Table
 
-type AddColumn name ty cons = forall tblname col . (KnownSymbol name, NoColumnNamed name col) => TableDef tblname col (Column name ty cons:col) (Column name ty cons)
+type AddColumn name ty cons = forall tblname col . (KnownSymbol name, NoColumnNamed name col) => TableDef tblname col (Column name ty cons:col) ()
 addColumn :: Column name ty cons -> AddColumn name ty cons
 addColumn _ = colBody
 
-type AlterColumn name ty cons = forall tblname col . (KnownSymbol name, HasColumnNamed name col) => TableDef tblname col (UpdateColumn (Column name ty cons) col) (Column name ty cons)
+type AlterColumn name ty cons = forall tblname col . (KnownSymbol name, HasColumnNamed name col) => TableDef tblname col (UpdateColumn (Column name ty cons) col) ()
 alterColumn :: Column name ty cons -> AlterColumn name ty cons
 alterColumn _ = colBody
 
-type DropColumn name ty cons = forall tblname col . (KnownSymbol name, HasColumn (Column name ty cons) col) => TableDef tblname col (DropFirst (Column name ty cons) col) (Column name ty cons)
+type DropColumn name ty cons = forall tblname col . (KnownSymbol name, HasColumn (Column name ty cons) col) => TableDef tblname col (DropFirst (Column name ty cons) col) ()
 dropColumn :: Column name ty cons -> DropColumn name ty cons
 dropColumn _ = colBody
+
+getColumn :: forall name tblname cols ty cons . (KnownSymbol name, HasColumnNamed name cols, (ColumnNamed name (Table tblname cols)) ~ (Column name ty cons))
+          => ColumnName name -> TableDef tblname cols cols (Column name ty cons)
+getColumn _ = return (Column :: Column name ty cons)
 
 addForeignKeyColumn :: (KnownSymbol name, NoColumnNamed name col, HasColumnNamed targetCol targetCols)
                     => Table targetName targetCols
@@ -102,7 +108,7 @@ mkTable :: (KnownSymbol name) => TableName name -> TableDef name '[] col a -> Ta
 mkTable _ defAction = snd $ runIxState defAction Table
 
 updateTable :: (KnownSymbol name) => Table name col -> TableDef name col col' a -> Table name col'
-updateTable _ defAction = snd $ runIxState defAction Table
+updateTable tbl defAction = snd $ runIxState defAction tbl
 
 --
 
@@ -120,10 +126,14 @@ type DropTable name cols = forall tbls . (KnownSymbol name, HasTable (Table name
 dropTable :: KnownSymbol name => Table name cols -> DropTable name cols
 dropTable _ = tblBody
 
+getTable :: (KnownSymbol name, HasTableNamed name tbls, (TableNamed name (Database tbls)) ~ (Table name cols))
+         => TableName name -> DatabaseDef tbls tbls (Table name cols)
+getTable _ = ireturn Table
+
 --
 
 mkDatabase :: DatabaseDef '[] tbls a -> Database tbls
 mkDatabase defAction = snd $ runIxState defAction Database
 
 updateDatabase :: Database tbls -> DatabaseDef tbls tbls' a -> Database tbls'
-updateDatabase _ defAction = snd $ runIxState defAction Database
+updateDatabase db defAction = snd $ runIxState defAction db

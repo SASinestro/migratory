@@ -23,6 +23,7 @@ library
                        , FlexibleContexts
                        , FlexibleInstances
                        , GADTs
+                       , OverloadedStrings
                        , PolyKinds
                        , RankNTypes
                        , RecordWildCards
@@ -36,7 +37,9 @@ library
                        , Database.Migratory.MigrationPrelude
                        , Database.Migratory.Migrate
 
-    other-modules:       Database.Migratory.Schema.ToValue
+    other-modules:       Database.Migratory.Migrate.StateTracking
+                       , Database.Migratory.Migrate.Types
+                       , Database.Migratory.Schema.ToValue
                        , Database.Migratory.Schema.Types
                        , Database.Migratory.Schema.TypeFunctions
 
