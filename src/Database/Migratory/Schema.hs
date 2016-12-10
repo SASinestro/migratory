@@ -6,273 +6,113 @@ module Database.Migratory.Schema
     , ColumnNamed
     , TableName(..)
     , Table(..)
-    , TableDefT
     , TableDef
+    , DatabaseDef
     , addColumn
     , alterColumn
-    , removeColumn
+    , dropColumn
     , addForeignKeyColumn
     , addForeignKeyToSelfColumn
     , addForeignKeyToColumn
     , addForeignKeyToSelfToColumn
-    , removeForeignKeyFromColumn
-    , removeForeignKeyToSelfFromColumn
-    , mkTableT
+    , dropForeignKeyFromColumn
+    , dropForeignKeyToSelfFromColumn
     , mkTable
     , updateTable
-    , updateTableT
+    , addTable
+    , alterTable
+    , dropTable
     ) where
 
-import           Control.Monad.Indexed
-import           Control.Monad.Indexed.State
-import           Data.Aeson.Types
-import           Data.Default
-import           Data.Functor.Identity
-import           Data.Int
-import           Data.Kind
-import           Data.Proxy
-import qualified Data.Text                   as T
-import           Data.Type.Bool
-import           Data.Type.Equality
-import           Data.Typeable
-import           GHC.TypeLits
-import           GHC.TypeLits.Symbols
+import Control.Monad.Indexed
+import Control.Monad.Indexed.State
+import GHC.TypeLits
 
-data ColumnConstraint where
-    Unique :: ColumnConstraint
-    Nullable :: ColumnConstraint
-    PrimaryKey :: ColumnConstraint
-    Reference :: Symbol -> Symbol -> ColumnConstraint
-
-deriving instance Typeable ColumnConstraint
-
-type family EqColumnConstraint a b where
-    EqColumnConstraint Unique Unique = True
-    EqColumnConstraint Nullable Nullable = True
-    EqColumnConstraint PrimaryKey PrimaryKey = True
-    EqColumnConstraint (Reference a b) (Reference c d) = True
-    EqColumnConstraint a b = False
-
-type instance a == b = EqColumnConstraint a b
-
-
-data ColumnType = SerialCol
-                | IntCol
-                | BigIntCol
-                | BooleanCol
-                | TextCol
-                | JSONBCol
-                | MACAddressCol
-                | IPAddressCol
-                deriving (Show, Eq)
-
-deriving instance Typeable ColumnType
-
-type family EqColumnType a b where
-    EqColumnType SerialCol SerialCol = True
-    EqColumnType IntCol IntCol = True
-    EqColumnType BigIntCol BigIntCol = True
-    EqColumnType BooleanCol BooleanCol = True
-    EqColumnType TextCol TextCol = True
-    EqColumnType JSONBCol JSONBCol = True
-    EqColumnType MACAddressCol MACAddressCol = True
-    EqColumnType IPAddressCol IPAddressCol = True
-    EqColumnType a b = False
-
-type instance a == b = EqColumnType a b
-
-type family ColumnValueType col where
-    ColumnValueType (Column name SerialCol cons)     = Int32
-    ColumnValueType (Column name IntCol cons)        = Int32
-    ColumnValueType (Column name BigIntCol cons)     = Int64
-    ColumnValueType (Column name BooleanCol cons)    = Bool
-    ColumnValueType (Column name TextCol cons)       = T.Text
-    ColumnValueType (Column name JSONBCol cons)      = Value
-    ColumnValueType (Column name MACAddressCol cons) = T.Text -- TODO: Replace with stricter types!
-    ColumnValueType (Column name IPAddressCol cons)  = T.Text
-
-type family HumanName (v :: k) :: Symbol where
-    HumanName SerialCol = "SerialCol"
-    HumanName IntCol = "IntCol"
-    HumanName BigIntCol = "BigIntCol"
-    HumanName BooleanCol = "BooleanCol"
-    HumanName TextCol = "TextCol"
-    HumanName JSONBCol = "JSONBCol"
-    HumanName MACAddressCol = "MACAddressCol"
-    HumanName IPAddressCol = "IPAddressCol"
-    HumanName Unique = "Unique"
-    HumanName Nullable = "Nullable"
-    HumanName PrimaryKey = "PrimaryKey"
-    HumanName (Reference a b) = "Reference"
-    HumanName '[] = ""
-    HumanName '[x] = HumanName x
-    HumanName (x:xs) = HumanName x +++ ", " +++ HumanName xs
-    HumanName (Column name ty cons) = "Column (name = \"" +++ name +++ "\", type = " +++ HumanName ty +++ ", constraints = [" +++ HumanName cons +++ "])"
-    HumanName (Table name cols) = "Table (name = \"" +++ name +++ "\", columns: [" +++ HumanName cols +++ "])"
+import Database.Migratory.Schema.TypeFunctions
+import Database.Migratory.Schema.Types
 
 --
-
-data ColumnName :: Symbol -> Type where
-    ColumnName :: KnownSymbol sym => ColumnName sym
-
-instance KnownSymbol sym => Show (ColumnName sym) where
-    show = symbolVal
-
-instance KnownSymbol name => Default (ColumnName name) where
-    def = ColumnName
-
-data Column :: Symbol -> ColumnType -> [ColumnConstraint] -> Type where
-    Column :: KnownSymbol name => Column name type' constraints
-    WithDefault :: KnownSymbol name => ColumnValueType (Column name ty cons) -> Column name ty cons
-
-instance KnownSymbol (HumanName (Column name type' constraints)) => Show (Column name type' constraints) where
-    show _ = symbolVal (Proxy :: Proxy (HumanName (Column name type' constraints)))
-
-instance KnownSymbol name => Default (Column name ty cons) where
-    def = Column
-
---
-
-data TableName :: Symbol -> Type where
-    TableName :: KnownSymbol sym => TableName sym
-
-instance KnownSymbol sym => Show (TableName sym) where
-    show = symbolVal
-
-instance KnownSymbol sym => Default (TableName sym) where
-    def = TableName
-
-data Table :: Symbol -> [Type] -> Type where
-    Table :: KnownSymbol name => Table name cols
-
-instance KnownSymbol (HumanName (Table name cols)) => Show (Table name cols) where
-    show _ = symbolVal (Proxy :: Proxy (HumanName (Table name cols)))
-
-instance KnownSymbol name => Default (Table name cols) where
-    def = Table
-
-type Found = True ~ True
-
-type family HasColumn col (cols :: [Type]) :: Constraint where
-    HasColumn (Column name ty cons) '[] =
-        TypeError (Text "No column " :<>: ShowType (Column name ty cons) :<>: Text " exists in the table!")
-    HasColumn (Column name ty cons) (Column name' ty' cons' : cols) =
-        If (name == name' && ty == ty' && cons == cons')
-            Found
-            (HasColumn (Column name ty cons) cols)
-
-type family HasColumnNamed (colName :: Symbol) (cols :: [Type]) :: Constraint where
-    HasColumnNamed name '[] =
-        TypeError (Text "No column named " :<>: ShowType name :<>: Text " exists in the table!")
-    HasColumnNamed name (Column name' ty' cons' : cols) =
-        If (name == name')
-            Found
-            (HasColumnNamed name cols)
-
-type family ColumnNamed (name :: Symbol) cols where
-    ColumnNamed name (Table tbl '[]) =
-        TypeError (Text "No column named " :<>: ShowType name :<>: Text " exists in the table "
-            :<>: ShowType tbl :<>: Text "!")
-    ColumnNamed name (Table tbl (Column name' ty' cons' : cols)) =
-        If (name == name')
-            (Column name' ty' cons')
-            (ColumnNamed name (Table tbl cols))
-
-type family UniquelyNamed (name :: Symbol) (cols :: [Type]) :: Constraint where
-    UniquelyNamed name ('[] :: [Type]) = Found
-    UniquelyNamed name (Column name' ty' cons' : cols) =
-        If (name == name')
-            (TypeError (Text "A column named " :<>: ShowType name :<>: Text " already exists in the table!"))
-            (UniquelyNamed name cols)
-
-type family UpdateColumn i (ts :: [Type]) :: [Type] where
-     UpdateColumn i '[] =
-        TypeError (Text "Can't update column \"" :<>: ShowType i
-            :<>: Text "\" in a table that doesn't have a column with that name!")
-     UpdateColumn (Column name ty cons) (Column name' ty' cons' : ts) =
-        If (name == name')
-            (Column name ty cons : ts)
-            (Column name' ty' cons' : UpdateColumn (Column name ty cons) ts)
-
-type family RemoveFirst i (ts :: [k]) :: [k] where
-    RemoveFirst i '[] = '[]
-    RemoveFirst i (t:ts) = If (i == t) ts (t : RemoveFirst i ts)
-
---
-
-type TableDefT m name col col' a = KnownSymbol name => IxStateT m (Table name col) (Table name col') a
-type TableDef name col col' a = TableDefT Identity name col col' a
 
 colBody :: (IxMonadState m, KnownSymbol tblname, KnownSymbol name) => m (Table tblname i) (Table tblname j) (Column name ty cons)
 colBody = iput Table >>>= \_ -> ireturn Column
 
-type AddColumn name ty cons = forall m tblname col . (Monad m, KnownSymbol name, UniquelyNamed name col) => TableDefT m tblname col (Column name ty cons:col) (Column name ty cons)
+type AddColumn name ty cons = forall tblname col . (KnownSymbol name, NoColumnNamed name col) => TableDef tblname col (Column name ty cons:col) (Column name ty cons)
 addColumn :: Column name ty cons -> AddColumn name ty cons
 addColumn _ = colBody
 
-type AlterColumn name ty cons = forall m tblname col . (Monad m, KnownSymbol name, HasColumnNamed name col) => TableDefT m tblname col (UpdateColumn (Column name ty cons) col) (Column name ty cons)
+type AlterColumn name ty cons = forall tblname col . (KnownSymbol name, HasColumnNamed name col) => TableDef tblname col (UpdateColumn (Column name ty cons) col) (Column name ty cons)
 alterColumn :: Column name ty cons -> AlterColumn name ty cons
 alterColumn _ = colBody
 
-type RemoveColumn name ty cons = forall m tblname col . (Monad m, KnownSymbol name, HasColumn (Column name ty cons) col) => TableDefT m tblname col (RemoveFirst (Column name ty cons) col) (Column name ty cons)
-removeColumn :: Column name ty cons -> RemoveColumn name ty cons
-removeColumn _ = colBody
+type DropColumn name ty cons = forall tblname col . (KnownSymbol name, HasColumn (Column name ty cons) col) => TableDef tblname col (DropFirst (Column name ty cons) col) (Column name ty cons)
+dropColumn :: Column name ty cons -> DropColumn name ty cons
+dropColumn _ = colBody
 
-addForeignKeyColumn :: (Monad m, KnownSymbol name, UniquelyNamed name col, HasColumnNamed targetCol targetCols)
+addForeignKeyColumn :: (KnownSymbol name, NoColumnNamed name col, HasColumnNamed targetCol targetCols)
                     => Table targetName targetCols
                     -> ColumnName targetCol
                     -> Column name ty cons
-                    -> TableDefT m tblname col (Column name ty (Reference targetName targetCol:cons):col)
+                    -> TableDef tblname col (Column name ty (Reference targetName targetCol:cons):col)
                                                (Column name ty (Reference targetName targetCol:cons))
 addForeignKeyColumn _ _ _ = iput (Table) >>>= \_ -> ireturn Column
 
-addForeignKeyToSelfColumn :: (Monad m, KnownSymbol name, UniquelyNamed name col, HasColumnNamed targetCol col)
+addForeignKeyToSelfColumn :: (KnownSymbol name, NoColumnNamed name col, HasColumnNamed targetCol col)
                           => ColumnName targetCol
                           -> Column name ty cons
-                          -> TableDefT m tblname col (Column name ty (Reference tblname targetCol:cons):col)
+                          -> TableDef tblname col (Column name ty (Reference tblname targetCol:cons):col)
                                                      (Column name ty (Reference tblname targetCol:cons))
 addForeignKeyToSelfColumn targetCol newCol = iget >>>= \tbl -> addForeignKeyColumn tbl targetCol newCol
 
-addForeignKeyToColumn :: (Monad m, KnownSymbol name, HasColumn (Column name ty cons) col, HasColumnNamed targetCol targetCols)
+addForeignKeyToColumn :: (KnownSymbol name, HasColumn (Column name ty cons) col, HasColumnNamed targetCol targetCols)
                       => Table targetName targetCols
                       -> ColumnName targetCol
                       -> Column name ty cons
-                      -> TableDefT m tblname col (UpdateColumn (Column name ty (Reference targetName targetCol:cons)) col)
+                      -> TableDef tblname col (UpdateColumn (Column name ty (Reference targetName targetCol:cons)) col)
                                                                (Column name ty (Reference targetName targetCol:cons))
 addForeignKeyToColumn _ _ _ = iput (Table) >>>= \_ -> ireturn Column
 
-addForeignKeyToSelfToColumn :: (Monad m, KnownSymbol name, HasColumn (Column name ty cons) col, HasColumnNamed targetCol col)
+addForeignKeyToSelfToColumn :: (KnownSymbol name, HasColumn (Column name ty cons) col, HasColumnNamed targetCol col)
                             => ColumnName targetCol
                             -> Column name ty cons
-                            -> TableDefT m tblname col (UpdateColumn (Column name ty (Reference tblname targetCol:cons)) col)
+                            -> TableDef tblname col (UpdateColumn (Column name ty (Reference tblname targetCol:cons)) col)
                                                                      (Column name ty (Reference tblname targetCol:cons))
 addForeignKeyToSelfToColumn targetCol myCol = iget >>>= \tbl -> addForeignKeyToColumn tbl targetCol myCol
 
-removeForeignKeyFromColumn :: (Monad m, KnownSymbol name, HasColumn (Column name ty cons) col, HasColumnNamed targetCol targetCols)
+dropForeignKeyFromColumn :: (KnownSymbol name, HasColumn (Column name ty cons) col, HasColumnNamed targetCol targetCols)
                            => Table targetName targetCols
                            -> ColumnName targetCol
                            -> Column name ty cons
-                           -> TableDefT m tblname col (UpdateColumn (Column name ty (RemoveFirst (Reference targetName targetCol) cons)) col)
-                                                                    (Column name ty (RemoveFirst (Reference targetName targetCol) cons))
-removeForeignKeyFromColumn _ _ _ = iput (Table) >>>= \_ -> ireturn Column
+                           -> TableDef tblname col (UpdateColumn (Column name ty (DropFirst (Reference targetName targetCol) cons)) col)
+                                                                    (Column name ty (DropFirst (Reference targetName targetCol) cons))
+dropForeignKeyFromColumn _ _ _ = iput (Table) >>>= \_ -> ireturn Column
 
-removeForeignKeyToSelfFromColumn :: (Monad m, KnownSymbol name, HasColumn (Column name ty cons) col, HasColumnNamed targetCol col)
+dropForeignKeyToSelfFromColumn :: (KnownSymbol name, HasColumn (Column name ty cons) col, HasColumnNamed targetCol col)
                                  => ColumnName targetCol
                                  -> Column name ty cons
-                                 -> TableDefT m tblname col (UpdateColumn (Column name ty (RemoveFirst (Reference tblname targetCol) cons)) col)
-                                                                          (Column name ty (RemoveFirst (Reference tblname targetCol) cons))
-removeForeignKeyToSelfFromColumn targetCol myCol = iget >>>= \tbl -> removeForeignKeyFromColumn tbl targetCol myCol
+                                 -> TableDef tblname col (UpdateColumn (Column name ty (DropFirst (Reference tblname targetCol) cons)) col)
+                                                                          (Column name ty (DropFirst (Reference tblname targetCol) cons))
+dropForeignKeyToSelfFromColumn targetCol myCol = iget >>>= \tbl -> dropForeignKeyFromColumn tbl targetCol myCol
 
 --
 
-mkTableT :: (Monad m, KnownSymbol name) => TableName name -> TableDefT m name '[] col a -> m (Table name col)
-mkTableT _ defAction = snd <$> runIxStateT defAction Table
-
 mkTable :: (KnownSymbol name) => TableName name -> TableDef name '[] col a -> Table name col
-mkTable _ defAction = runIdentity $ snd <$> runIxStateT defAction Table
-
-updateTableT :: (Monad m, KnownSymbol name) => Table name col -> TableDefT m name col col' a -> m (Table name col')
-updateTableT _ defAction = snd <$> runIxStateT defAction Table
+mkTable _ defAction = snd $ runIxState defAction Table
 
 updateTable :: (KnownSymbol name) => Table name col -> TableDef name col col' a -> Table name col'
-updateTable _ defAction = runIdentity $ snd <$> runIxStateT defAction Table
+updateTable _ defAction = snd $ runIxState defAction Table
+
+--
+
+tblBody :: (IxMonadState m, KnownSymbol name) => m (Database i) (Database j) (Table name cols)
+tblBody = iput Database >>>= \_ -> ireturn Table
+
+type AddTable name cols = forall tbls . (KnownSymbol name, NoTableNamed name tbls) => DatabaseDef tbls (Table name cols:tbls) (Table name cols)
+addTable :: KnownSymbol name => TableName name -> TableDef name '[] tbls a -> AddTable name cols
+addTable _ _ = tblBody
+
+alterTable :: KnownSymbol name => Table name cols -> TableDef name cols cols' a -> DatabaseDef tbls (UpdateTable (Table name cols) tbls) (Table name cols)
+alterTable _ _ = tblBody
+
+type DropTable name cols = forall tbls . (KnownSymbol name, HasTable (Table name cols) tbls) => DatabaseDef tbls (DropFirst (Table name cols) tbls) (Table name cols)
+dropTable :: KnownSymbol name => Table name cols -> DropTable name cols
+dropTable _ = tblBody

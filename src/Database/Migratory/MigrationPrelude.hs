@@ -1,9 +1,9 @@
 module Database.Migratory.MigrationPrelude (module Prelude, module Database.Migratory.Schema, module Control.Monad.Indexed, ifThenElse, tName, col, cName) where
 
-import Control.Monad.Indexed
-import Database.Migratory.Schema
-import GHC.TypeLits
-import Prelude                        hiding (Monad (..))
+import           Control.Monad.Indexed
+import           Database.Migratory.Schema
+import           GHC.TypeLits
+import           Prelude                   hiding (Monad (..))
 
 ifThenElse :: Bool -> a -> a -> a
 ifThenElse True a _  = a
