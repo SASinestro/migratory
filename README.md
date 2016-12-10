@@ -1,6 +1,4 @@
-# Migratory – Dependently-Typed Database Migrations in Haskell
-
-That, pretty much.
+# Migratory – Type-Safe Database Migrations in Haskell
 
 It covers the exact use case that I have for it at the moment, it is not intended for general consumption at the moment. However, the core functionality is general enough that it will most likely be useful to someone, if they correct the minor limitations that it has at the moment (e.g. being limited to exactly the data types and constraints that I need for the application that I am developing Migratory for use in).
 
