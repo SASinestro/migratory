@@ -50,6 +50,7 @@ type family TyShow (v :: k) :: Symbol where
         "Column (name = \"" +++ name +++ "\", type = " +++ TyShow ty +++ ", constraints = [" +++ TyShow cons +++ "])"
 
     TyShow (Table name cols) = "Table (name = \"" +++ name +++ "\", columns: [" +++ TyShow cols +++ "])"
+    TyShow (Database tbls) = "Database (columns = [" +++ TyShow tbls +++ "])"
 
 --
 

@@ -36,7 +36,8 @@ library
                        , Database.Migratory.MigrationPrelude
                        , Database.Migratory.Migrate
 
-    other-modules:       Database.Migratory.Schema.Types
+    other-modules:       Database.Migratory.Schema.ToValue
+                       , Database.Migratory.Schema.Types
                        , Database.Migratory.Schema.TypeFunctions
 
     build-depends:       base >= 4.9 && < 5

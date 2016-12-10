@@ -109,7 +109,7 @@ tblBody :: (IxMonadState m, KnownSymbol name) => m (Database i) (Database j) (Ta
 tblBody = iput Database >>>= \_ -> ireturn Table
 
 type AddTable name cols = forall tbls . (KnownSymbol name, NoTableNamed name tbls) => DatabaseDef tbls (Table name cols:tbls) (Table name cols)
-addTable :: KnownSymbol name => TableName name -> TableDef name '[] tbls a -> AddTable name cols
+addTable :: KnownSymbol name => TableName name -> TableDef name '[] cols a -> AddTable name cols
 addTable _ _ = tblBody
 
 alterTable :: KnownSymbol name => Table name cols -> TableDef name cols cols' a -> DatabaseDef tbls (UpdateTable (Table name cols) tbls) (Table name cols)
