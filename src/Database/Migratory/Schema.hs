@@ -22,6 +22,8 @@ module Database.Migratory.Schema
     , addTable
     , alterTable
     , dropTable
+    , mkDatabase
+    , updateDatabase
     ) where
 
 import Control.Monad.Indexed
@@ -116,3 +118,11 @@ alterTable _ _ = tblBody
 type DropTable name cols = forall tbls . (KnownSymbol name, HasTable (Table name cols) tbls) => DatabaseDef tbls (DropFirst (Table name cols) tbls) (Table name cols)
 dropTable :: KnownSymbol name => Table name cols -> DropTable name cols
 dropTable _ = tblBody
+
+--
+
+mkDatabase :: DatabaseDef '[] tbls a -> Database tbls
+mkDatabase defAction = snd $ runIxState defAction Database
+
+updateDatabase :: Database tbls -> DatabaseDef tbls tbls' a -> Database tbls'
+updateDatabase _ defAction = snd $ runIxState defAction Database
