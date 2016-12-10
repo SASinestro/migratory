@@ -7,6 +7,7 @@ module Database.Migratory.Schema
     , TableName(..)
     , Table(..)
     , TableDef
+    , Database(..)
     , DatabaseDef
     , addColumn
     , alterColumn
@@ -105,17 +106,17 @@ updateTable _ defAction = snd $ runIxState defAction Table
 
 --
 
-tblBody :: (IxMonadState m, KnownSymbol name) => m (Database i) (Database j) (Table name cols)
-tblBody = iput Database >>>= \_ -> ireturn Table
+tblBody :: (IxMonadState m) => m (Database i) (Database j) ()
+tblBody = iput Database
 
-type AddTable name cols = forall tbls . (KnownSymbol name, NoTableNamed name tbls) => DatabaseDef tbls (Table name cols:tbls) (Table name cols)
+type AddTable name cols = forall tbls . (KnownSymbol name, NoTableNamed name tbls) => DatabaseDef tbls (Table name cols:tbls) ()
 addTable :: KnownSymbol name => TableName name -> TableDef name '[] cols a -> AddTable name cols
 addTable _ _ = tblBody
 
-alterTable :: KnownSymbol name => Table name cols -> TableDef name cols cols' a -> DatabaseDef tbls (UpdateTable (Table name cols) tbls) (Table name cols)
+alterTable :: KnownSymbol name => Table name cols -> TableDef name cols cols' a -> DatabaseDef tbls (UpdateTable (Table name cols) tbls) ()
 alterTable _ _ = tblBody
 
-type DropTable name cols = forall tbls . (KnownSymbol name, HasTable (Table name cols) tbls) => DatabaseDef tbls (DropFirst (Table name cols) tbls) (Table name cols)
+type DropTable name cols = forall tbls . (KnownSymbol name, HasTable (Table name cols) tbls) => DatabaseDef tbls (DropFirst (Table name cols) tbls) ()
 dropTable :: KnownSymbol name => Table name cols -> DropTable name cols
 dropTable _ = tblBody
 
