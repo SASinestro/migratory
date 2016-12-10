@@ -95,7 +95,7 @@ toByteStringRep' = dbRep
         colConstraintRep UniqueCon              = "unique"
         colConstraintRep NullableCon            = "nullable"
         colConstraintRep PrimaryKeyCon          = "primary key"
-        colConstraintRep (ReferenceCon tbl col) = BS.pack $ "Reference to " ++ tbl ++ "." ++ col
+        colConstraintRep (ReferenceCon tbl col) = BS.pack $ "reference to " ++ tbl ++ "." ++ col
 
 instance Show (DatabaseCon) where
     show = BS.unpack . BS.init . toByteStringRep'
