@@ -48,7 +48,6 @@ library
                        , indexed
                        , indexed-extras
                        , data-default
-                       , rebindable
                        , ghc-typelits-symbols
                        , cryptonite
 
