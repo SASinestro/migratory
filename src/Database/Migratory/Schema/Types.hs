@@ -58,6 +58,7 @@ data ColumnConstraint = Unique
                       | Nullable
                       | PrimaryKey
                       | Reference Symbol Symbol
+                      | Default Symbol -- Yes, all default values have to be rendered into Symbols. I'm sorry. :(
                       deriving (Typeable)
 
 deriving instance Typeable ColumnConstraint
@@ -101,7 +102,6 @@ instance KnownSymbol name => Default (ColumnName name) where
 
 data Column :: Symbol -> ColumnType -> [ColumnConstraint] -> Type where
     Column :: KnownSymbol name => Column name type' constraints
-    WithDefault :: KnownSymbol name => ColumnValueType (Column name ty cons) -> Column name ty cons
 
 instance KnownSymbol name => Default (Column name ty cons) where
     def = Column
